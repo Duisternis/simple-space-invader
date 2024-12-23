@@ -9,7 +9,7 @@
 using namespace std;
 
 // can be used for circle rx==ry
-void utils_ellipse(float cx, float cy, float rx, float ry, int segm = 100) {
+void utils_ellipse(float cx, float cy, float rx, float ry, int segm=100) {
     glBegin(GL_POLYGON);
     for (int i=0; i<segm; i++) {
         float angle=2.0f*M_PI*float(i)/float(segm);
@@ -20,40 +20,54 @@ void utils_ellipse(float cx, float cy, float rx, float ry, int segm = 100) {
     glEnd();
 }
 
-void utils_render_bitmap_string(float x, float y, void* font, const char* string) {
-    const char* c;
+void utils_render_bitmap_string(float x, float y, void* font, string str) {
     glRasterPos2f(x, y);
-    for (c=string; *c!='\0'; c++) {
-        glutBitmapCharacter(font, *c);
+    for (int i=0; i<str.size(); i++) {
+        glutBitmapCharacter(font, str[i]);
     }
 }
 
 class Meteor {
 private:
     float x, y, size;
+    float sp;
     int sides;
     vector<float> radii;
+    
+    float angle;
+    int rot_sp;
 public:
-    Meteor(float x, float y, float size, int sides): x(x), y(y), size(size), sides(sides) {
+    Meteor(float x, float y, float size, int sides, float sp): x(x), y(y), size(size), sides(sides), sp(sp), angle(0) {
         if (sides<3) sides=3;
         radii.resize(sides);
         for (int i=0; i<sides; ++i)
-            radii[i]=size*(0.7f+static_cast<float>(rand())/RAND_MAX*0.6f);
+            radii[i]=size*(0.7+(float)(rand())/RAND_MAX*0.6);
+        
+        rot_sp=1+rand()%5;
     }
     
     void draw() {
-        float angleStep=2.0f*M_PI/sides;
+        glPushMatrix();
+        glTranslatef(x, y, 0);
+        glRotatef(angle, 0, 0, 1);
+        glTranslatef(-x, -y, 0);
+        
+        float angle_step=2.0f*M_PI/sides;
         glBegin(GL_POLYGON);
         for (int i = 0; i < sides; i++) {
-            float angle=i*angleStep;
+            float angle=i*angle_step;
             float vx=x+radii[i]*cos(angle);
             float vy=y+radii[i]*sin(angle);
             glVertex2f(vx, vy);
         }
         glEnd();
+        glPopMatrix();
     }
     
-    void fall(float sp) { y-=sp; }
+    void fall() {
+        y-=sp;
+        angle+=rot_sp%360;
+    }
     
     float get_x() const { return x; }
     float get_y() const { return y; }
@@ -176,7 +190,7 @@ void update() {
     if (keys['r'] && game_over) reset_game();
 
     for (auto& meteor : m) {
-        meteor.fall(10.5f);
+        meteor.fall();
         
         // Collision detection
         float dx=meteor.get_x()-spaceship.get_x();
@@ -242,10 +256,7 @@ void gameover_screen() {
     
     glColor3f(1, 1, 1);
     utils_render_bitmap_string(260, 250, GLUT_BITMAP_TIMES_ROMAN_24, "Score");
-    
-    char score_message[50];
-    snprintf(score_message, sizeof(score_message), "%d", score);
-    utils_render_bitmap_string(340, 250, GLUT_BITMAP_TIMES_ROMAN_24, score_message);
+    utils_render_bitmap_string(340, 250, GLUT_BITMAP_TIMES_ROMAN_24, to_string(score));
 }
 
 void game_start_screen() {
@@ -255,7 +266,7 @@ void game_start_screen() {
     glColor3f(0, 1, 0);
     utils_render_bitmap_string(30, 100, GLUT_BITMAP_HELVETICA_12, "Press ");
     
-    glColor3f(1.0f, 0.6f, 0.2f);
+    glColor3f(1, 0.6, 0.2);
     utils_render_bitmap_string(65, 100, GLUT_BITMAP_HELVETICA_12, "[W, A, S, D]");
 
     glColor3f(0, 1, 0);
@@ -270,9 +281,10 @@ void display() {
     if (!game_over) {
         spaceship.draw();
         for (auto& meteor : m) {
-            glColor3f(0.8f, 0.4f, 0.0f);
+            glColor3f(0.8, 0.4, 0.0);
             meteor.draw();
         }
+        glColor3f(0.4196, 0.5255, 0.6471);
         utils_render_bitmap_string(510, 40, GLUT_BITMAP_HELVETICA_18, ("Score: "+to_string(score)).c_str());
     } else {
         gameover_screen();
@@ -298,7 +310,8 @@ void timer(int value) {
             float ry=640+rand()%100;
             float r_size=20+rand()%30;
             int r_sides=6+rand()%5;
-            m.emplace_back(rx, ry, r_size, r_sides);
+            float sp=7+rand()%5;
+            m.emplace_back(rx, ry, r_size, r_sides, sp);
             score++;
         }
     }
@@ -308,7 +321,7 @@ void timer(int value) {
 }
 
 int main( int argc, char **argv ) {
-    srand(static_cast<unsigned>(time(0)));
+    srand(unsigned(time(0)));
     
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE);
